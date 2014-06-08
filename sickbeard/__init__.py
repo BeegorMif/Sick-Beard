@@ -32,7 +32,7 @@ import webbrowser
 from threading import Lock
 
 # apparently py2exe won't build these unless they're imported somewhere
-from sickbeard import providers, metadata
+from sickbeard import providers
 
 from providers import ezrss, tvtorrents, torrentleech, btn, newznab, womble, omgwtfnzbs, hdbits
 
@@ -44,7 +44,6 @@ from sickbeard.config import CheckSection, check_setting_int, check_setting_str,
 
 from sickbeard import searchCurrent, searchBacklog, showUpdater, versionChecker, properFinder, autoPostProcesser
 from sickbeard import helpers, db, exceptions, show_queue, search_queue, scheduler
-from sickbeard import subtitle_queue
 from sickbeard import logger
 from sickbeard import naming
 
@@ -86,14 +85,12 @@ showQueueScheduler = None
 searchQueueScheduler = None
 properFinderScheduler = None
 autoPostProcesserScheduler = None
-subtitleQueueScheduler = None
 
 showList = None
 loadingShowList = None
 
 providerList = []
 newznabProviderList = []
-metadata_provider_dict = {}
 
 NEWEST_VERSION = None
 NEWEST_VERSION_STRING = None
@@ -129,14 +126,6 @@ ACTUAL_CACHE_DIR = None
 ROOT_DIRS = None
 
 USE_LISTVIEW = None
-METADATA_XBMC = None
-METADATA_XBMC_12PLUS = None
-METADATA_MEDIABROWSER = None
-METADATA_PS3 = None
-METADATA_WDTV = None
-METADATA_TIVO = None
-
-SUBTITLE_LANGUAGES = None
 
 QUALITY_DEFAULT = None
 STATUS_DEFAULT = None
@@ -428,10 +417,8 @@ def initialize(consoleLogging=True):
                 USE_BOXCAR, BOXCAR_USERNAME, BOXCAR_PASSWORD, BOXCAR_NOTIFY_ONDOWNLOAD, BOXCAR_NOTIFY_ONSNATCH, \
                 USE_PUSHOVER, PUSHOVER_USERKEY, PUSHOVER_NOTIFY_ONDOWNLOAD, PUSHOVER_NOTIFY_ONSNATCH, \
                 USE_LIBNOTIFY, LIBNOTIFY_NOTIFY_ONSNATCH, LIBNOTIFY_NOTIFY_ONDOWNLOAD, USE_NMJ, NMJ_HOST, NMJ_DATABASE, NMJ_MOUNT, USE_NMJv2, NMJv2_HOST, NMJv2_DATABASE, NMJv2_DBLOC, USE_SYNOINDEX, \
-                USE_LISTVIEW, METADATA_XBMC, METADATA_XBMC_12PLUS, METADATA_MEDIABROWSER, METADATA_PS3, metadata_provider_dict, \
-                SUBTITLE_LANGUAGES, subtitleQueueScheduler, \
-                GIT_PATH, MOVE_ASSOCIATED_FILES, \
-                COMING_EPS_LAYOUT, COMING_EPS_SORT, COMING_EPS_DISPLAY_PAUSED, METADATA_WDTV, METADATA_TIVO, IGNORE_WORDS, CREATE_MISSING_SHOW_DIRS, \
+                USE_LISTVIEW, GIT_PATH, MOVE_ASSOCIATED_FILES, \
+                COMING_EPS_LAYOUT, COMING_EPS_SORT, COMING_EPS_DISPLAY_PAUSED, IGNORE_WORDS, CREATE_MISSING_SHOW_DIRS, \
                 ADD_SHOWS_WO_DIR, ANON_REDIRECT
 
         if __INITIALIZED__:
@@ -560,8 +547,6 @@ def initialize(consoleLogging=True):
         DTT_NORAR = bool(check_setting_int(CFG, 'DTT', 'dtt_norar', 0))
         DTT_SINGLE = bool(check_setting_int(CFG, 'DTT', 'dtt_single', 0))
 
-        SUBTITLE_LANGUAGES = check_setting_str(CFG, 'General', 'subtitle_languages', '')
-
         TVTORRENTS = bool(check_setting_int(CFG, 'TVTORRENTS', 'tvtorrents', 0))    
         TVTORRENTS_DIGEST = check_setting_str(CFG, 'TVTORRENTS', 'tvtorrents_digest', '')
         TVTORRENTS_HASH = check_setting_str(CFG, 'TVTORRENTS', 'tvtorrents_hash', '')
@@ -629,13 +614,6 @@ def initialize(consoleLogging=True):
         EXTRA_SCRIPTS = [x.strip() for x in check_setting_str(CFG, 'General', 'extra_scripts', '').split('|') if x.strip()]
 
         USE_LISTVIEW = bool(check_setting_int(CFG, 'General', 'use_listview', 0))
-
-        METADATA_XBMC = check_setting_str(CFG, 'General', 'metadata_xbmc', '0|0|0|0|0|0|0|0|0|0')
-        METADATA_XBMC_12PLUS = check_setting_str(CFG, 'General', 'metadata_xbmc_12plus', '0|0|0|0|0|0|0|0|0|0')
-        METADATA_MEDIABROWSER = check_setting_str(CFG, 'General', 'metadata_mediabrowser', '0|0|0|0|0|0|0|0|0|0')
-        METADATA_PS3 = check_setting_str(CFG, 'General', 'metadata_ps3', '0|0|0|0|0|0|0|0|0|0')
-        METADATA_WDTV = check_setting_str(CFG, 'General', 'metadata_wdtv', '0|0|0|0|0|0|0|0|0|0')
-        METADATA_TIVO = check_setting_str(CFG, 'General', 'metadata_tivo', '0|0|0|0|0|0|0|0|0|0')
 
         CheckSection(CFG, 'GUI')
         COMING_EPS_LAYOUT = check_setting_str(CFG, 'GUI', 'coming_eps_layout', 'banner')
@@ -812,21 +790,6 @@ def initialize(consoleLogging=True):
         migrator = ConfigMigrator(CFG)
         migrator.migrate_config()
 
-        # initialize metadata_providers
-        metadata_provider_dict = metadata.get_metadata_generator_dict()
-        for cur_metadata_tuple in [(METADATA_XBMC, metadata.xbmc),
-                                   (METADATA_XBMC_12PLUS, metadata.xbmc_12plus),
-                                   (METADATA_MEDIABROWSER, metadata.mediabrowser),
-                                   (METADATA_PS3, metadata.ps3),
-                                   (METADATA_WDTV, metadata.wdtv),
-                                   (METADATA_TIVO, metadata.tivo),
-                                   ]:
-
-            (cur_metadata_config, cur_metadata_class) = cur_metadata_tuple
-            tmp_provider = cur_metadata_class.metadata_class()
-            tmp_provider.set_config(cur_metadata_config)
-            metadata_provider_dict[tmp_provider.name] = tmp_provider
-
         # initialize newznab providers
         newznabProviderList = providers.getNewznabProviderList(NEWZNAB_DATA)
         providerList = providers.makeProviderList()
@@ -880,10 +843,6 @@ def initialize(consoleLogging=True):
                                                                       runImmediately=True)
         backlogSearchScheduler.action.cycleTime = BACKLOG_SEARCH_FREQUENCY
         
-        subtitleQueueScheduler = scheduler.Scheduler(subtitle_queue.SubtitleQueue(),
-                                               cycleTime=datetime.timedelta(seconds=3),
-                                               threadName="SUBTITLEQUEUE",
-                                               silent=True)
         showList = []
         loadingShowList = {}
 
@@ -896,7 +855,6 @@ def start():
     global __INITIALIZED__, currentSearchScheduler, backlogSearchScheduler, \
             showUpdateScheduler, versionCheckScheduler, showQueueScheduler, \
             properFinderScheduler, autoPostProcesserScheduler, searchQueueScheduler, \
-            subtitleQueueScheduler, \
             started
 
     with INIT_LOCK:
@@ -927,9 +885,6 @@ def start():
             # start the proper finder
             autoPostProcesserScheduler.thread.start()
 
-            #start subtitle queue
-            subtitleQueueScheduler.thread.start()
-                        
             started = True
 
 
@@ -937,7 +892,6 @@ def halt():
 
     global __INITIALIZED__, currentSearchScheduler, backlogSearchScheduler, showUpdateScheduler, \
             showQueueScheduler, properFinderScheduler, autoPostProcesserScheduler, searchQueueScheduler, \
-            subtitleQueueScheduler, \
             started
 
     with INIT_LOCK:
@@ -1001,13 +955,6 @@ def halt():
             logger.log(u"Waiting for the PROPERFINDER thread to exit")
             try:
                 properFinderScheduler.thread.join(10)
-            except:
-                pass
-            
-            subtitleQueueScheduler.abort = True
-            logger.log(u"Waiting for the SUBTITLEQUEUE thread to exit")
-            try:
-                subtitleQueueScheduler.thread.abort()
             except:
                 pass
             
@@ -1156,13 +1103,6 @@ def save_config():
     new_config['General']['launch_browser'] = int(LAUNCH_BROWSER)
 
     new_config['General']['use_listview'] = int(USE_LISTVIEW)
-    new_config['General']['metadata_xbmc'] = METADATA_XBMC
-    new_config['General']['metadata_xbmc_12plus'] = METADATA_XBMC_12PLUS
-    new_config['General']['metadata_mediabrowser'] = METADATA_MEDIABROWSER
-    new_config['General']['metadata_ps3'] = METADATA_PS3
-    new_config['General']['metadata_wdtv'] = METADATA_WDTV
-    new_config['General']['metadata_tivo'] = METADATA_TIVO
-    new_config['General']['subtitle_languages'] = SUBTITLE_LANGUAGES
 
     new_config['General']['cache_dir'] = ACTUAL_CACHE_DIR if ACTUAL_CACHE_DIR else 'cache'
     new_config['General']['root_dirs'] = ROOT_DIRS if ROOT_DIRS else ''

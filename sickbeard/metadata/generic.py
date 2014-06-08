@@ -37,7 +37,6 @@ from sickbeard.exceptions import ex
 
 from lib.tvdb_api import tvdb_api, tvdb_exceptions
 
-from sickbeard import subtitle_queue
 import glob
 
 class GenericMetadata():
@@ -63,7 +62,6 @@ class GenericMetadata():
                  poster=False,
                  banner=False,
                  episode_thumbnails=False,
-                 subtitles=False,
                  season_posters=False,
                  season_banners=False,
                  season_all_poster=False,
@@ -92,11 +90,9 @@ class GenericMetadata():
         self.season_all_poster = season_all_poster
         self.season_all_banner = season_all_banner
 
-        self.subtitles = subtitles        
-        self.eg_subtitles = "Season##\\<i>filename.language</i>.srt"
     
     def get_config(self):
-        config_list = [self.show_metadata, self.episode_metadata, self.fanart, self.poster, self.banner, self.episode_thumbnails, self.season_posters, self.season_banners, self.season_all_poster, self.season_all_banner, self.subtitles]
+        config_list = [self.show_metadata, self.episode_metadata, self.fanart, self.poster, self.banner, self.episode_thumbnails, self.season_posters, self.season_banners, self.season_all_poster, self.season_all_banner]
         return '|'.join([str(int(x)) for x in config_list])
 
     def get_id(self):
@@ -120,7 +116,6 @@ class GenericMetadata():
         self.season_banners = config_list[7]
         self.season_all_poster = config_list[8]
         self.season_all_banner = config_list[9]
-        self.subtitles = config_list[10] if len(config_list) >= 11 else 0
     
     def _has_show_metadata(self, show_obj):
         result = ek.ek(os.path.isfile, self.get_show_file_path(show_obj))
@@ -161,16 +156,6 @@ class GenericMetadata():
             logger.log(u"Checking if " + location + " exists: " + str(result), logger.DEBUG)
         return result
     
-    def _has_episode_subtitle(self, ep_obj):
-        #Assumes that an episode have subtitles if any srt file is on the disk
-        #with the following pattern: episode_file_name_without_extension*.srt
-        subtitlePath = ep_obj.location.rpartition(".")[0] + "*.srt"
-        subtitlePath = subtitlePath.replace("[", "*").replace("]", "*")
-        locations = glob.glob(subtitlePath)
-        logger.log("Checking if "+subtitlePath+" exists: "+str(len(locations)), logger.DEBUG)
-        return True if len(locations) > 0 else False
-    
-
     def _has_season_banner(self, show_obj, season):
         location = self.get_season_banner_path(show_obj, season)
         result = location != None and ek.ek(os.path.isfile, location)
@@ -331,16 +316,6 @@ class GenericMetadata():
             return all(result)
         return False
 
-    def create_subtitles(self, ep_obj, force=False):
-        if self.subtitles and ep_obj and not self._has_episode_subtitle(ep_obj):
-            logger.log("Metadata provider "+self.name+" added to SUBTITLE-QUEUE: "+ep_obj.prettyName(), logger.DEBUG)
-            # make a queue item for it and put it on the queue
-            sub_queue_item = subtitle_queue.SubtitleQueueItem(ep_obj, force)
-            sickbeard.subtitleQueueScheduler.action.add_item(sub_queue_item) 
-
-            return True
-        return  False
-        
     def create_season_all_poster(self, show_obj):
         if self.season_all_poster and show_obj and not self._has_season_all_poster(show_obj):
             logger.log(u"Metadata provider " + self.name + " creating season all poster for " + show_obj.name, logger.DEBUG)
