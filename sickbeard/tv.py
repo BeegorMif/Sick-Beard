@@ -219,50 +219,6 @@ class TVShow(object):
 
         return False
 
-    def writeShowNFO(self):
-
-        result = False
-
-        if not ek.ek(os.path.isdir, self._location):
-            logger.log(str(self.tvdbid) + u": Show dir doesn't exist, skipping NFO generation")
-            return False
-
-        logger.log(str(self.tvdbid) + u": Writing NFOs for show")
-        for cur_provider in sickbeard.metadata_provider_dict.values():
-            result = cur_provider.create_show_metadata(self) or result
-
-        return result
-    
-    def writeMetadata(self, show_only=False):
-
-        if not ek.ek(os.path.isdir, self._location):
-            logger.log(str(self.tvdbid) + u": Show dir doesn't exist, skipping NFO generation")
-            return
-
-        self.getImages()
-
-        self.writeShowNFO()
-
-        if not show_only:
-            self.writeEpisodeNFOs()
-
-    def writeEpisodeNFOs(self):
-
-        if not ek.ek(os.path.isdir, self._location):
-            logger.log(str(self.tvdbid) + u": Show dir doesn't exist, skipping NFO generation")
-            return
-
-        logger.log(str(self.tvdbid) + u": Writing NFOs for all episodes")
-
-        myDB = db.DBConnection()
-        sqlResults = myDB.select("SELECT * FROM tv_episodes WHERE showid = ? AND location != ''", [self.tvdbid])
-
-        for epResult in sqlResults:
-            logger.log(str(self.tvdbid) + u": Retrieving/creating episode " + str(epResult["season"]) + u"x" + str(epResult["episode"]), logger.DEBUG)
-            curEp = self.getEpisode(epResult["season"], epResult["episode"])
-            curEp.createMetaFiles()
-
-    # find all media files in the show folder and create episodes for as many as possible
     def loadEpisodesFromDir(self):
 
         if not ek.ek(os.path.isdir, self._location):
@@ -986,44 +942,6 @@ class TVEpisode(object):
 
     location = property(lambda self: self._location, _set_location)
 
-    def checkForMetaFiles(self):
-
-        oldhasnfo = self.hasnfo
-        oldhastbn = self.hastbn
-        oldhassrt = self.hassrt
-
-        cur_nfo = False
-        cur_tbn = False
-        cur_srt = False
-
-        # check for nfo and tbn
-        if ek.ek(os.path.isfile, self.location):
-            for cur_provider in sickbeard.metadata_provider_dict.values():
-                if cur_provider.episode_metadata:
-                    new_result = cur_provider._has_episode_metadata(self)
-                else:
-                    new_result = False
-                cur_nfo = new_result or cur_nfo
-
-                if cur_provider.episode_thumbnails:
-                    new_result = cur_provider._has_episode_thumb(self)
-                else:
-                    new_result = False
-                cur_tbn = new_result or cur_tbn
-                
-                if cur_provider.subtitles:
-                    new_result = cur_provider._has_episode_subtitle(self)
-                else:
-                    new_result = False
-                cur_srt = new_result or cur_srt
-
-        self.hasnfo = cur_nfo
-        self.hastbn = cur_tbn
-        self.hassrt = cur_srt
-
-        # if either setting has changed return true, if not return false
-        return oldhasnfo != self.hasnfo or oldhastbn != self.hastbn or oldhassrt != self.hassrt
-
     def specifyEpisode(self, season, episode):
 
         sqlResult = self.loadFromDB(season, episode)
@@ -1038,11 +956,11 @@ class TVEpisode(object):
                     pass
 
                 # if we tried loading it from NFO and didn't find the NFO, use TVDB
-                if self.hasnfo == False:
-                    try:
-                        result = self.loadFromTVDB(season, episode)
-                    except exceptions.EpisodeDeletedException:
-                        result = False
+
+                try:
+                    result = self.loadFromTVDB(season, episode)
+                except exceptions.EpisodeDeletedException:
+                    result = False
 
                     # if we failed SQL *and* NFO, TVDB then fail
                     if result == False:

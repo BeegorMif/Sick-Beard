@@ -321,7 +321,6 @@ class QueueItemAdd(ShowQueueItem):
             logger.log(u"Launching backlog for this show since its episodes are WANTED")
             sickbeard.backlogSearchScheduler.action.searchBacklog([self.show]) #@UndefinedVariable
 
-        self.show.writeMetadata()
         self.show.populateCache()
 
         self.show.flushEpisodes()
@@ -349,7 +348,6 @@ class QueueItemRefresh(ShowQueueItem):
         logger.log(u"Performing refresh on " + self.show.name)
 
         self.show.refreshDir()
-        self.show.writeMetadata()
         self.show.populateCache()
 
         self.inProgress = False
