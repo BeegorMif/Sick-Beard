@@ -822,7 +822,6 @@ class ConfigPostProcessing:
     def savePostProcessing(self, naming_pattern=None, naming_multi_ep=None,
                     xbmc_data=None, xbmc_12plus_data=None, mediabrowser_data=None, sony_ps3_data=None, wdtv_data=None, tivo_data=None,
                     keep_processed_dir=None, process_automatically=None, rename_episodes=None,
-                    subtitle_languages=None,
                     move_associated_files=None, tv_download_dir=None, naming_custom_abd=None, naming_abd_pattern=None):
 
         results = []
@@ -874,7 +873,6 @@ class ConfigPostProcessing:
 
         # Save changes
 
-        sickbeard.SUBTITLE_LANGUAGES = subtitle_languages
         sickbeard.save_config()
 
         if len(results) > 0:
