@@ -507,8 +507,6 @@ class TVShow(object):
                     else:
                         same_file = False
 
-                    curEp.checkForMetaFiles()
-
             if rootEp == None:
                 rootEp = curEp
             else:
@@ -913,8 +911,6 @@ class TVEpisode(object):
 
         self.relatedEps = []
 
-        self.checkForMetaFiles()
-
     name = property(lambda self: self._name, dirty_setter("_name"))
     season = property(lambda self: self._season, dirty_setter("_season"))
     episode = property(lambda self: self._episode, dirty_setter("_episode"))
@@ -1212,46 +1208,6 @@ class TVEpisode(object):
         toReturn += "hassrt: " + str(self.hassrt) + "\n"
         toReturn += "status: " + str(self.status) + "\n"
         return toReturn
-
-    def createMetaFiles(self, force=False):
-
-        if not ek.ek(os.path.isdir, self.show._location):
-            logger.log(str(self.show.tvdbid) + u": The show dir is missing, not bothering to try to create metadata")
-            return
-
-        self.createNFO(force)
-        self.createThumbnail(force)
-        self.createSubtitles(force)
-
-        if self.checkForMetaFiles():
-            self.saveToDB()
-
-    def createNFO(self, force=False):
-
-        result = False
-
-        for cur_provider in sickbeard.metadata_provider_dict.values():
-            result = cur_provider.create_episode_metadata(self) or result
-
-        return result
-
-    def createThumbnail(self, force=False):
-
-        result = False
-
-        for cur_provider in sickbeard.metadata_provider_dict.values():
-            result = cur_provider.create_episode_thumb(self) or result
-
-        return result
-
-    def createSubtitles(self, force=False):
-
-        result = False
-
-        for cur_provider in sickbeard.metadata_provider_dict.values():
-            result = cur_provider.create_subtitles(self) or result
-
-        return result
 
     def deleteEpisode(self):
 
@@ -1664,8 +1620,6 @@ class TVEpisode(object):
                     relEp.location = absolute_proper_path + file_ext
 
         # in case something changed with the metadata just do a quick check
-        for curEp in [self] + self.relatedEps:
-            curEp.checkForMetaFiles()
 
         # save any changes to the database
         with self.lock:
